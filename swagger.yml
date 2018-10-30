@@ -1,0 +1,59 @@
+swagger: '2.3.1'
+info:
+  title: Cachigo
+  description: Cachigo - GO API
+  version: 0.0.1
+schemes:
+  - http
+paths:
+  /api/hotels:
+    get:
+      summary: Get best price quotes for a given destination.
+      produces:
+        - application/json
+      parameters:
+        - name: checkin
+          in: query
+          description: Checkin date (DDMMYYY)
+          required: true
+          type: string
+        - name: checkout
+          in: query
+          description: Checkout date (DDMMYYY)
+          required: true
+          type: string
+        - name: destination
+          in: query
+          description: Destination
+          required: true
+          type: string
+        - name: guests
+          in: query
+          description: Number of Guests
+          required: true
+          type: integer
+        - name: suppliers
+          in: query
+          description: Scope query by specific suppliers
+          required: false
+          type: string
+      responses:
+        '200':
+          description: success
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/SupplierOffer'
+definitions:
+  SupplierOffer:
+    type: object
+    properties:
+      id:
+        type: string
+      price:
+        type: number
+      supplier:
+        type: string
