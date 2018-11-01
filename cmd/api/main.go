@@ -14,9 +14,9 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/benhawker/cachigo/internal/caching"
-	"github.com/benhawker/cachigo/internal/errors"
 	"github.com/benhawker/cachigo/internal/initialize"
 	"github.com/benhawker/cachigo/internal/registry"
+	"github.com/benhawker/cachigo/internal/supplier"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -27,10 +27,10 @@ const (
 )
 
 var (
-	wg         sync.WaitGroup
-	errHandler errors.Handler
-	suppliers  map[string]string
-	cache      caching.Cache
+	wg              sync.WaitGroup
+	suppliers       map[string]string
+	suppliersClient supplier.Cli
+	cache           caching.Cache
 )
 
 func init() {
@@ -40,7 +40,10 @@ func init() {
 		log.Fatalf("no suppliers file was found: %v", err)
 	}
 
-	errHandler = errors.DefaultHandler{Logger: log.StandardLogger()}
+	suppliersClient, err = supplier.NewClient()
+	if err != nil {
+		log.Fatalf("error initializing the supplier client: %v", err)
+	}
 }
 
 func main() {
@@ -51,10 +54,11 @@ func main() {
 	loggedRouter := handlers.LoggingHandler(os.Stdout, mux)
 
 	reg := registry.Registry{
-		Mux:        mux,
-		ErrHandler: errHandler,
-		Suppliers:  suppliers,
-		Cache:      caching.NewCache(),
+		Mux:             mux,
+		Suppliers:       suppliers,
+		SuppliersClient: suppliersClient,
+		Cache:           caching.NewCache(),
+		Logger:          log.StandardLogger(),
 	}
 	reg.Register()
 

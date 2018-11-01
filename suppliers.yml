@@ -3,4 +3,4 @@ supplier1: "https://api.myjson.com/bins/2tlb8"
 supplier2: "https://api.myjson.com/bins/42lok" 
 supplier3: "https://api.myjson.com/bins/15ktg"
 # Added as a supplier that returns 500 - which is handled.
-# supplier4: "https://api.myjson.com/bins/doesnotexistwdqefwrgethrfweqdefwrbrwfr"
+supplier4: "https://api.myjson.com/bins/doesnotexistwdqefwrgethrfweqdefwrbrwfr"

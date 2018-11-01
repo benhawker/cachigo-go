@@ -5,20 +5,24 @@ import (
 	"net/http"
 
 	"github.com/benhawker/cachigo/internal/caching"
-	"github.com/benhawker/cachigo/internal/errors"
 	"github.com/benhawker/cachigo/internal/supplier"
+	log "github.com/sirupsen/logrus"
 )
 
+// QueryHandler definition.
 type QueryHandler struct {
-	Supplier   map[string]string
-	Cache      caching.Cache
-	ErrHandler errors.Handler
+	Supplier        map[string]string
+	Cache           caching.Cache
+	Logger          *log.Logger
+	SuppliersClient supplier.Cli
 }
 
+// Response defines the response body for the hotels endpoint
 type Response struct {
 	Data []HotelOffer `json:"data"`
 }
 
+// HotelOffer defines each element of the response body.
 type HotelOffer struct {
 	ID       string  `json:"id"`
 	Price    float64 `json:"price"`
@@ -28,7 +32,7 @@ type HotelOffer struct {
 func (h *QueryHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	requestParams, err := NewRequestParams(req)
 	if err != nil {
-		h.ErrHandler.Handle(errors.New("unprocessable_entity", err.Error()))
+		h.Logger.Error(err)
 		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 		return
 	}
@@ -40,9 +44,9 @@ func (h *QueryHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		cacheKey := h.Cache.BuildKey(requestParams, name)
 		supplierResponse, cacheHit := h.Cache.Get(cacheKey)
 		if !cacheHit {
-			supplierResponse, err = supplier.MakeRequest(url)
+			supplierResponse, err = h.SuppliersClient.MakeRequest(url)
 			if err != nil {
-				h.ErrHandler.Handle(errors.New("error calling supplier", err.Error()))
+				h.Logger.Errorf("calling %s raised error: %s", name, err.Error())
 			}
 			h.Cache.Set(cacheKey, supplierResponse)
 		}
@@ -58,7 +62,7 @@ func (h *QueryHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	b, err := json.Marshal(response)
 	if err != nil {
-		h.ErrHandler.Handle(err)
+		h.Logger.Error(err)
 		http.Error(w, "unable to decode data", http.StatusInternalServerError)
 		return
 	}
@@ -75,8 +79,8 @@ func (h *QueryHandler) validateRequestedSuppliers(requestParams RequestParams) m
 
 	suppliers := map[string]string{}
 	for _, supplierName := range requestParams.Suppliers() {
-		if supplierUrl, ok := h.Supplier[supplierName]; ok {
-			suppliers[supplierName] = supplierUrl
+		if supplierURL, ok := h.Supplier[supplierName]; ok {
+			suppliers[supplierName] = supplierURL
 		}
 	}
 	return suppliers

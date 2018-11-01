@@ -7,6 +7,7 @@ import (
 	"strings"
 )
 
+// RequestParams ...
 type RequestParams struct {
 	DateParams       DateParams
 	DestinationParam string
@@ -14,11 +15,13 @@ type RequestParams struct {
 	SuppliersParam   []string
 }
 
+// DateParams ...
 type DateParams struct {
 	Checkin  string
 	Checkout string
 }
 
+// NewRequestParams ...
 func NewRequestParams(req *http.Request) (RequestParams, error) {
 	p := RequestParams{}
 
@@ -49,22 +52,27 @@ func NewRequestParams(req *http.Request) (RequestParams, error) {
 	return p, nil
 }
 
+// Checkin ...
 func (p RequestParams) Checkin() string {
 	return p.DateParams.Checkin
 }
 
+// Checkout ...
 func (p RequestParams) Checkout() string {
 	return p.DateParams.Checkout
 }
 
+// Destination ...
 func (p RequestParams) Destination() string {
 	return p.DestinationParam
 }
 
+// NumberOfGuests ...
 func (p RequestParams) NumberOfGuests() int {
 	return p.GuestsParam
 }
 
+// Suppliers ...
 func (p RequestParams) Suppliers() []string {
 	return p.SuppliersParam
 }
@@ -74,7 +82,7 @@ func parseDateParams(req *http.Request) (DateParams, error) {
 	checkout := req.FormValue("checkout")
 
 	if checkin == "" && checkout == "" {
-		return DateParams{}, errors.New("You must pass `checkin` & `checkout` parameters.")
+		return DateParams{}, errors.New("you must pass `checkin` & `checkout` parameters")
 	}
 
 	return DateParams{
@@ -97,7 +105,7 @@ func parseDestinationParam(req *http.Request) (string, error) {
 	destination := req.FormValue("destination")
 
 	if destination == "" {
-		return "", errors.New("You must pass the `destination` parameter.")
+		return "", errors.New("you must pass the `destination` parameter")
 	}
 
 	return destination, nil
@@ -107,12 +115,12 @@ func parseGuestsParam(req *http.Request) (int, error) {
 	numberOfGuests := req.FormValue("guests")
 
 	if numberOfGuests == "" {
-		return 0, errors.New("You must pass the `guests` parameter.")
+		return 0, errors.New("you must pass the `guests` parameter")
 	}
 
 	i, err := strconv.Atoi(numberOfGuests)
 	if err != nil {
-		return 0, errors.New("You must pass the `guests` parameter as an integer.")
+		return 0, errors.New("you must pass the `guests` parameter as an integer")
 	}
 
 	return i, nil

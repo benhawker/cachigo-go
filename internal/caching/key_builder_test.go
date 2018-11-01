@@ -3,15 +3,15 @@ package caching_test
 import (
 	"testing"
 
-	"github.com/cheekybits/is"
 	"github.com/benhawker/cachigo/internal/caching"
+	"github.com/cheekybits/is"
 )
 
 type MockParams struct {
-	CheckinFn 		 func() string
-  	CheckoutFn 		 func() string
-  	DestinationFn 	 func() string
-  	NumberOfGuestsFn func() int
+	CheckinFn        func() string
+	CheckoutFn       func() string
+	DestinationFn    func() string
+	NumberOfGuestsFn func() int
 }
 
 func (m MockParams) Checkin() string {
@@ -29,7 +29,6 @@ func (m MockParams) Destination() string {
 func (m MockParams) NumberOfGuests() int {
 	return m.NumberOfGuestsFn()
 }
-
 
 func TestKeyBuilder_ReturnsTheExpectedKey(t *testing.T) {
 	is := is.New(t)

@@ -7,18 +7,21 @@ import (
 	"net/http/httptest"
 	"strings"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/cheekybits/is"
 
 	"github.com/benhawker/cachigo/internal/caching"
-	"github.com/benhawker/cachigo/internal/errors"
 	"github.com/benhawker/cachigo/internal/projection"
+	"github.com/benhawker/cachigo/internal/supplier"
 )
 
-func NewQueryHandler(cache caching.Cache, errHandler errors.Handler) *projection.QueryHandler {
+func NewQueryHandler(cache caching.Cache, sClient supplier.Cli) *projection.QueryHandler {
 	return &projection.QueryHandler{
-		Supplier:   mockSuppliers(),
-		Cache:      caching.NewCache(),
-		ErrHandler: errHandler,
+		Supplier:        mockSuppliers(),
+		SuppliersClient: sClient,
+		Cache:           caching.NewCache(),
+		Logger:          log.StandardLogger(),
 	}
 }
 
@@ -32,14 +35,19 @@ func mockSuppliers() map[string]string {
 
 func TestQueryHandler_ServeHTTP(t *testing.T) {
 	is := is.New(t)
-	req, err := http.NewRequest("GET", "/api/hotels?checkin=12122018&checkout=16122019&destination=paris&guests=2&suppliers=supplier2,supplier1,supplier3", nil)
+	queryStr := "/api/hotels?checkin=12122018&checkout=16122019&destination=paris&guests=2&suppliers=supplier2,supplier1,supplier3"
+	req, err := http.NewRequest("GET", queryStr, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	qh := NewQueryHandler(
 		caching.NewCache(),
-		mockError{},
+		supplier.MockClient{
+			MakeRequestFunc: func(url string) (supplier.Response, error) {
+				return nil, nil
+			},
+		},
 	)
 	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(qh.ServeHTTP)
@@ -57,16 +65,16 @@ func TestQueryHandler_ServeHTTPWithoutRequiredQueryParameters(t *testing.T) {
 	}
 	qh := NewQueryHandler(
 		caching.NewCache(),
-		mockError{},
+		supplier.MockClient{
+			MakeRequestFunc: func(url string) (supplier.Response, error) {
+				return nil, nil
+			},
+		},
 	)
 	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(qh.ServeHTTP)
 	handler.ServeHTTP(rr, req)
 
 	is.Equal(rr.Code, http.StatusUnprocessableEntity)
-	is.Equal(strings.Contains(rr.Body.String(), "You must pass the `destination` parameter."), true)
+	is.Equal(strings.Contains(rr.Body.String(), "you must pass the `destination` parameter"), true)
 }
-
-type mockError struct{}
-
-func (m mockError) Handle(err error) {}
