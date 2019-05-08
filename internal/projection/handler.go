@@ -3,6 +3,8 @@ package projection
 import (
 	"encoding/json"
 	"net/http"
+	"sync"
+	"fmt"
 
 	"github.com/benhawker/cachigo/internal/caching"
 	"github.com/benhawker/cachigo/internal/supplier"
@@ -40,20 +42,64 @@ func (h *QueryHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	validatedSuppliers := h.validateRequestedSuppliers(requestParams)
 
 	allResponses := []HotelOffer{}
+
+	responsesCh := make(chan supplier.ResponseWithError)
+	wg := &sync.WaitGroup{} // Declare a wait group
+
+	fmt.Println("Before loop")
+
+	// STEP 1: Make concurrent requests
 	for name, url := range validatedSuppliers {
-		cacheKey := h.Cache.BuildKey(requestParams, name)
-		supplierResponse, cacheHit := h.Cache.Get(cacheKey)
-		if !cacheHit {
-			supplierResponse, err = h.SuppliersClient.MakeRequest(url)
-			if err != nil {
-				h.Logger.Errorf("calling %s raised error: %s", name, err.Error())
+		resp := make(chan supplier.ResponseWithError)    // channel to collect response
+		go h.SuppliersClient.MakeRequestXX(name, url, wg, resp) // make actual request
+	
+		go func() {
+			select {
+			case r := <-resp: // when the request finishes
+				responsesCh <- r // sucess, distribute response to the return channel
 			}
-			h.Cache.Set(cacheKey, supplierResponse)
+			wg.Done() // Now goroutine is complete.
+		}()
+	}
+
+	// STEP 2: Wait until all responses are recieved/completed.
+	go func() {
+		wg.Wait()
+		close(responsesCh)
+	}()
+
+	// STEP 3: Gather all responses. Process will block until all responses are received.
+	var responses []*supplier.ResponseWithError
+	for resp := range responsesCh {
+		responses = append(responses, &resp)
+	}
+
+	fmt.Println("After....")
+
+	for _, response := range responses {
+		if response.Error != nil {
+			fmt.Println(err)
+			h.Logger.Errorf("calling %s raised error: %s", response.Name, err.Error())
 		}
 
-		transformedResponse := transformSupplierResponse(name, supplierResponse.(supplier.Response))
+		transformedResponse := transformSupplierResponse(response.Name, response)
 		allResponses = append(allResponses, transformedResponse...)
 	}
+
+	// for name, url := range validatedSuppliers {
+	// 	cacheKey := h.Cache.BuildKey(requestParams, name)
+	// 	supplierResponse, cacheHit := h.Cache.Get(cacheKey)
+	// 	if !cacheHit {
+	// 		supplierResponse, err = h.SuppliersClient.MakeRequest(url)
+	// 		if err != nil {
+	// 			h.Logger.Errorf("calling %s raised error: %s", name, err.Error())
+	// 		}
+	// 		h.Cache.Set(cacheKey, supplierResponse)
+	// 	}
+
+	// 	transformedResponse := transformSupplierResponse(name, supplierResponse.(supplier.Response))
+	// 	allResponses = append(allResponses, transformedResponse...)
+	// }
 
 	bestPrices := findBestPriceByHotel(allResponses)
 	response := Response{
@@ -108,10 +154,10 @@ func transformBestPrices(bestPrices map[string]HotelOffer) []HotelOffer {
 	return resp
 }
 
-func transformSupplierResponse(name string, response supplier.Response) []HotelOffer {
+func transformSupplierResponse(name string, response *supplier.ResponseWithError) []HotelOffer {
 	offers := []HotelOffer{}
 
-	for hotel, price := range response {
+	for hotel, price := range response.Body {
 		ho := HotelOffer{
 			ID:       hotel,
 			Price:    price,
